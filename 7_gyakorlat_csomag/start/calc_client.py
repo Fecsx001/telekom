@@ -13,8 +13,10 @@ host, port, a, op, b = (
 )
 op = "*" if op == "x" else op
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-    client.connect((host, port))
-    client.sendall(packer.pack(a, b, op.encode()))
-    result, _, _ = packer.unpack(client.recv(packer.size))
-    print(f"{a} {op} {b} = {result}")
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    sent = sock.sendto(
+        packer.pack(a, b, op.encode()),
+        (host, port),
+    )
+    data, server = sock.recvfrom(1024)
+    print(f"Response from {server}: {packer.unpack(data)}")

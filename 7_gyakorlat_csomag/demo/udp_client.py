@@ -26,5 +26,5 @@ def three_clients():
 
 
 if __name__ == "__main__":
-    one_message()  # alap, [K1], [K2]: kommenteld ki, ha a [K3]-at kapcsolod be
-    # three_clients()                       # [K3]
+    # one_message()  # alap, [K1], [K2]: kommenteld ki, ha a [K3]-at kapcsolod be
+    three_clients()  # [K3]
