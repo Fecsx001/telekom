@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Python &amp; Telecommunications Know-How</title>
+<style>
+:root{--bg:#fff;--fg:#1d2330;--mut:#5b6475;--card:#f4f6fa;--acc:#2b5fd9;--code:#0f1623;--codefg:#e6edf7;--bd:#d9deea}
+@media (prefers-color-scheme:dark){:root{--bg:#12151c;--fg:#e4e8f0;--mut:#9aa4b8;--card:#1b202b;--acc:#7da4ff;--code:#0a0d13;--codefg:#e6edf7;--bd:#2c3342}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,Segoe UI,Roboto,sans-serif}
+.wrap{display:flex;max-width:1200px;margin:auto}
+nav{position:sticky;top:0;align-self:flex-start;height:100vh;overflow:auto;width:260px;padding:24px 16px;border-right:1px solid var(--bd);font-size:14px}
+nav a{display:block;color:var(--mut);text-decoration:none;padding:3px 0}nav a:hover{color:var(--acc)}nav b{display:block;margin:14px 0 4px;color:var(--fg)}
+main{flex:1;min-width:0;padding:24px 32px 80px}
+h1{font-size:2rem;margin:.2em 0}h2{margin-top:2.4em;border-bottom:2px solid var(--acc);padding-bottom:.2em}h3{margin-top:1.8em}
+pre{background:var(--code);color:var(--codefg);padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13.5px;line-height:1.5}
+code{font-family:ui-monospace,Consolas,monospace}p code,li code,td code{background:var(--card);padding:1px 5px;border-radius:4px;font-size:.92em}
+.box{background:var(--card);border-left:4px solid var(--acc);padding:10px 16px;border-radius:6px;margin:1em 0}
+.warn{border-left-color:#d9822b}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:14.5px}th,td{border:1px solid var(--bd);padding:6px 10px;text-align:left;vertical-align:top}th{background:var(--card)}
+@media(max-width:800px){nav{display:none}main{padding:16px}}
+</style></head><body><div class="wrap">
+<nav><b>Python</b>
+<a href="#p1">1. Core basics</a><a href="#p2">2. Strings &amp; bytes</a><a href="#p3">3. Files, JSON, random</a><a href="#p4">4. struct module</a><a href="#p5">5. socket module</a><a href="#p6">6. select module</a><a href="#p7">7. Errors &amp; debugging</a>
+<b>Telecommunications</b><a href="#t1">8. Layered models</a><a href="#t2">9. IP &amp; ports</a><a href="#t3">10. TCP</a><a href="#t4">11. UDP</a><a href="#t5">12. Framing &amp; binary protocols</a><a href="#t6">13. Concurrency models</a><a href="#t7">14. Proxies</a><a href="#t8">15. Reliability &amp; errors</a><a href="#t9">16. Tools</a>
+<b>Exam</b><a href="#x1">17. ZH patterns &amp; checklist</a></nav>
+<main>
+<h1>Python &amp; Telecommunications Know-How</h1>
+<p>A practical reference for network programming in Python, written around the TCP/UDP exam tasks (struct-based clients, <code>select</code> servers, UDP servers, proxies). Every code block is runnable Python 3.</p>
+
+<h2 id="p1">1. Python core basics</h2>
+<p>Python is dynamically typed, indentation defines blocks, and everything is an object. The pieces you need constantly in network code:</p>
+<pre>x = 5; name = "alma"            # no declarations
+items = [1, 2, 3]               # list (mutable)
+pair  = ("almafa", 4)           # tuple (immutable) - struct.unpack returns tuples!
+d     = {"1": ["almafa", 4]}    # dict
+text, num = d["1"]              # unpacking
+for i, v in enumerate(items, start=1): print(i, v)
+squares = [n*n for n in items if n &gt; 1]     # comprehension
+def f(a, b=2, *args, **kw): return a + b      # defaults, varargs
+if __name__ == "__main__":      # run only when executed directly
+    main()</pre>
+<h3>Context managers</h3>
+<p><code>with</code> guarantees cleanup (closing a socket or file) even on exceptions. Sockets and files both support it.</p>
+<pre>with socket.socket() as s:     # s.close() is called automatically
+    ...</pre>
+<h3>Slicing</h3>
+<pre>"almafa"[:4]    # 'alma'   first 4 characters
+"alma"[::-1]    # 'amla'   reversed
+"almafa"[4:]    # 'fa'     drop the first 4</pre>
+<div class="box warn"><b>Watch out:</b> the first exam task says "cut X characters from the start" but the examples (<code>almafa,4 → amla</code>) keep the first X characters and reverse them: <code>text[:X][::-1]</code>. When spec text and examples disagree, trust the examples and test against the given server.</div>
+
+<h2 id="p2">2. Strings vs. bytes</h2>
+<p>Python 3 strictly separates <code>str</code> (Unicode text) from <code>bytes</code> (raw octets). Sockets only transmit bytes.</p>
+<table><tr><th>Operation</th><th>Code</th><th>Note</th></tr>
+<tr><td>str → bytes</td><td><code>"alma".encode("utf-8")</code></td><td>Non-ASCII chars (á, ő) take 2+ bytes, so <code>len(text) != len(text.encode())</code></td></tr>
+<tr><td>bytes → str</td><td><code>b"alma".decode("utf-8")</code></td><td>Raises <code>UnicodeDecodeError</code> on invalid data</td></tr>
+<tr><td>Remove padding</td><td><code>data.rstrip(b"\0")</code></td><td><code>struct</code> pads <code>20s</code> with NUL bytes</td></tr>
+<tr><td>Number as bytes</td><td><code>str(19).encode()</code> → <code>b"19"</code></td><td>"Return the value as a byte string" in task 2</td></tr>
+<tr><td>Bytes to number</td><td><code>int(b"19")</code></td><td><code>int()</code> accepts bytes holding digits</td></tr></table>
+<p>Byte literals: <code>b'INCR'</code>. Indexing bytes gives <em>ints</em> (<code>b'A'[0] == 65</code>), slicing gives bytes.</p>
+
+<h2 id="p3">3. Files, JSON, random</h2>
+<pre># text file, one record per line
+with open("input.txt", encoding="utf-8") as f:
+    lines = f.read().splitlines()          # no trailing \n
+text, num = lines[idx-1].split()           # "almafa 4" -> ["almafa","4"]
+num = int(num)                             # split gives strings!
+
+# JSON
+import json
+with open("input.json") as f: data = json.load(f)
+key = str(random.randint(1, 3))            # JSON object keys are ALWAYS strings
+text, num = data[key]                      # list [“almafa”, 4] -> unpack
+
+import random
+random.randint(1, 3)      # inclusive on BOTH ends (1, 2 or 3)
+random.choice([-1, 0, 1]) # pick from a sequence
+random.randrange(3)       # 0..2 (end excluded)</pre>
+<p>Relative paths such as <code>input.txt</code> resolve against the <em>current working directory</em>, not the script location. Run the script from its folder, or use <code>pathlib.Path(__file__).parent / "input.txt"</code>.</p>
+
+<h2 id="p4">4. The <code>struct</code> module</h2>
+<p>Converts between Python values and packed C-style binary records. This is the "wire format" of your protocol.</p>
+<table><tr><th>Code</th><th>C type</th><th>Python</th><th>Size</th></tr>
+<tr><td><code>i</code> / <code>I</code></td><td>int / unsigned</td><td>int</td><td>4</td></tr>
+<tr><td><code>h</code> / <code>H</code></td><td>short</td><td>int</td><td>2</td></tr>
+<tr><td><code>q</code></td><td>long long</td><td>int</td><td>8</td></tr>
+<tr><td><code>f</code> / <code>d</code></td><td>float / double</td><td>float</td><td>4 / 8</td></tr>
+<tr><td><code>Ns</code></td><td>char[N]</td><td>bytes</td><td>N</td></tr>
+<tr><td><code>?</code></td><td>bool</td><td>bool</td><td>1</td></tr></table>
+<h3>Pack / unpack</h3>
+<pre>import struct
+packed = struct.pack("20s i", "almafa".encode(), 4)   # 24 bytes
+text, num = struct.unpack("20s i", packed)            # (b'almafa\0\0...', 4)
+text = text.rstrip(b"\0").decode()
+struct.calcsize("20s i")   # 24
+struct.calcsize("4s i")    # 8
+struct.calcsize("5s i")    # 12   <- 3 padding bytes after 5s!</pre>
+<h3>Alignment and byte order</h3>
+<p>With no prefix, <code>struct</code> uses <strong>native byte order and native alignment</strong>: an <code>i</code> must start at a multiple of 4, so <code>5s i</code> becomes 5 + <em>3 pad</em> + 4 = 12 bytes. Prefixes change this:</p>
+<table><tr><th>Prefix</th><th>Byte order</th><th>Alignment</th></tr>
+<tr><td>(none) / <code>@</code></td><td>native</td><td>native (padding)</td></tr>
+<tr><td><code>=</code></td><td>native</td><td>none</td></tr>
+<tr><td><code>&lt;</code></td><td>little-endian</td><td>none</td></tr>
+<tr><td><code>&gt;</code> / <code>!</code></td><td>big-endian (network order)</td><td>none</td></tr></table>
+<div class="box">The exam gives formats like <code>20s i</code> and <code>5s i</code> without prefix, so use <em>exactly</em> those strings; changing them changes message sizes and breaks the given server/test environment. In new protocols you design yourself, prefer <code>!</code> (network byte order).</div>
+<h3>Dynamic formats</h3>
+<pre>fmt = f"{num}s"                       # e.g. "4s"
+data = recv_all(sock, struct.calcsize(fmt))
+reply = struct.unpack(fmt, data)[0]   # tuple of one element</pre>
+<p>If a string is longer than the field, <code>struct.pack</code> silently <em>truncates</em>; shorter is NUL-padded. A value of the wrong type raises <code>struct.error</code>.</p>
+
+<h2 id="p5">5. The <code>socket</code> module</h2>
+<h3>TCP client</h3>
+<pre>import socket
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    s.connect(("localhost", 10000))
+    s.sendall(payload)            # sendall loops until everything is sent
+    data = s.recv(1024)           # up to 1024 bytes, may return fewer!</pre>
+<h3>TCP server</h3>
+<pre>srv = socket.socket()
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # avoid "Address already in use"
+srv.bind(("0.0.0.0", 10000))   # 0.0.0.0 = all interfaces, "localhost" = loopback only
+srv.listen()
+conn, addr = srv.accept()      # blocks; conn is a NEW socket per client
+data = conn.recv(1024)         # b"" means the peer closed the connection</pre>
+<h3>UDP</h3>
+<pre>u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+u.settimeout(3)                         # otherwise recvfrom may block forever
+u.sendto(payload, ("localhost", 10001)) # no connect needed
+data, addr = u.recvfrom(1024)           # one call = ONE datagram, with sender address
+# server side: u.bind((host, port)) then loop recvfrom/sendto(addr)</pre>
+<h3>Reading exactly N bytes (TCP)</h3>
+<p>TCP is a <em>byte stream</em>: one <code>send</code> of 24 bytes may arrive as 10 + 14 bytes. Always loop:</p>
+<pre>def recv_all(sock, n):
+    buf = b""
+    while len(buf) &lt; n:
+        part = sock.recv(n - len(buf))
+        if not part: raise ConnectionError("closed")
+        buf += part
+    return buf</pre>
+<p>On localhost small messages nearly always arrive whole, which hides this bug until it fails on a real network.</p>
+
+<h2 id="p6">6. I/O multiplexing with <code>select</code></h2>
+<p><code>select.select(rlist, wlist, xlist, timeout)</code> blocks until at least one socket in <code>rlist</code> is readable and returns the ready ones. A listening socket is "readable" when a connection waits in <code>accept()</code>; a client socket is readable when data (or EOF) is available. This allows one thread to serve many clients.</p>
+<pre>inputs = [srv]; buffers = {}
+while True:
+    readable, _, _ = select.select(inputs, [], [])
+    for s in readable:
+        if s is srv:                       # new connection
+            c, _ = srv.accept(); inputs.append(c); buffers[c] = b""
+        else:
+            data = s.recv(1024)
+            if not data:                   # client disconnected
+                inputs.remove(s); del buffers[s]; s.close()
+            else:
+                buffers[s] += data
+                while len(buffers[s]) &gt;= SIZE:        # complete message(s)?
+                    msg, buffers[s] = buffers[s][:SIZE], buffers[s][SIZE:]
+                    handle(s, msg)</pre>
+<p><strong>Per-client buffers</strong> handle partial and coalesced messages, the same stream issue as above. Never call a blocking <code>recv_all</code> inside the loop: one slow client would freeze all others. To combine TCP and UDP in one loop just add the UDP socket to <code>inputs</code> and use <code>recvfrom</code> for it.</p>
+<p>Alternatives: <code>selectors</code> (higher-level, uses epoll/kqueue), <code>threading</code> (thread per client), <code>asyncio</code> (coroutines). Shared mutable state in threaded servers needs a <code>Lock</code>; in a <code>select</code> loop it does not, because everything runs in one thread.</p>
+
+<h2 id="p7">7. Errors &amp; debugging</h2>
+<table><tr><th>Symptom</th><th>Likely cause</th></tr>
+<tr><td><code>ConnectionRefusedError</code></td><td>Server not running / wrong port or host</td></tr>
+<tr><td><code>OSError: Address already in use</code></td><td>Old process or TIME_WAIT: set <code>SO_REUSEADDR</code>, kill old process</td></tr>
+<tr><td><code>struct.error: unpack requires a buffer of N bytes</code></td><td>Got fewer/more bytes than <code>calcsize</code>: partial read, wrong format string, or padding</td></tr>
+<tr><td><code>TypeError: a bytes-like object is required</code></td><td>Sent a <code>str</code>: call <code>.encode()</code></td></tr>
+<tr><td><code>socket.timeout</code></td><td>UDP datagram lost, server down or wrong address</td></tr>
+<tr><td>Hangs forever</td><td>Both sides in <code>recv</code> (deadlock), or UDP without timeout</td></tr>
+<tr><td>Garbage text with <code>\x00</code></td><td>Forgot <code>rstrip(b"\0")</code></td></tr></table>
+<pre>try:
+    data = s.recv(1024)
+except (ConnectionResetError, socket.timeout) as e:
+    print("network problem:", e)
+finally:
+    s.close()
+print(repr(data), len(data))   # repr shows hidden bytes - the best debugging aid</pre>
+
+<h2 id="t1">8. Layered models</h2>
+<table><tr><th>OSI layer</th><th>TCP/IP layer</th><th>Examples</th><th>Unit</th></tr>
+<tr><td>7 Application, 6 Presentation, 5 Session</td><td>Application</td><td>HTTP, DNS, SMTP, your own struct protocol</td><td>message</td></tr>
+<tr><td>4 Transport</td><td>Transport</td><td>TCP, UDP</td><td>segment / datagram</td></tr>
+<tr><td>3 Network</td><td>Internet</td><td>IP, ICMP</td><td>packet</td></tr>
+<tr><td>2 Data link, 1 Physical</td><td>Link</td><td>Ethernet, Wi-Fi, fibre</td><td>frame / bit</td></tr></table>
+<p><strong>Encapsulation:</strong> your 24-byte struct becomes TCP payload; TCP adds a header (ports, sequence numbers), IP adds addresses, Ethernet adds MAC addresses and a CRC. Each layer only talks to the same layer on the peer. A Python socket program lives at the application layer and uses the transport layer through the socket API.</p>
+
+<h2 id="t2">9. IP addressing and ports</h2>
+<ul><li><strong>IPv4</strong>: 32 bit (<code>192.168.1.10</code>); <strong>IPv6</strong>: 128 bit. <code>127.0.0.1</code>/<code>localhost</code> is loopback: traffic never leaves the machine. <code>0.0.0.0</code> as bind address = every interface.</li>
+<li>Private ranges: <code>10/8</code>, <code>172.16/12</code>, <code>192.168/16</code>, reached from outside only via NAT.</li>
+<li><strong>Port</strong>: 16 bit (0–65535) selecting the application on a host. 0–1023 well-known (80 HTTP, 443 HTTPS, 53 DNS, 22 SSH), 1024–49151 registered, above dynamic. Servers bind to a chosen port; clients get an <em>ephemeral</em> port automatically.</li>
+<li>A connection is identified by the 5-tuple <code>(protocol, src IP, src port, dst IP, dst port)</code>. A TCP port 10000 and a UDP port 10000 are <em>different</em> endpoints, so the exam servers can both use 10000.</li>
+<li><strong>DNS</strong> maps names to IPs (<code>socket.gethostbyname("example.com")</code>).</li></ul>
+
+<h2 id="t3">10. TCP (Transmission Control Protocol)</h2>
+<p>Connection-oriented, reliable, ordered, byte-stream, flow- and congestion-controlled.</p>
+<h3>Three-way handshake</h3>
+<pre>Client                    Server
+  | ---- SYN (seq=x) ----&gt; |     connect() starts
+  | &lt;-- SYN+ACK (y, x+1) - |     server in accept queue after listen()
+  | ---- ACK (y+1) ------&gt; |     connect() returns / accept() returns</pre>
+<p>Teardown uses FIN/ACK in each direction (four-way); <code>close()</code> on one side makes the other side's <code>recv</code> return <code>b""</code>.</p>
+<h3>Key mechanisms</h3>
+<table><tr><th>Mechanism</th><th>Purpose</th></tr>
+<tr><td>Sequence numbers + ACKs</td><td>Ordering and detecting loss</td></tr>
+<tr><td>Retransmission (timeout, fast retransmit)</td><td>Reliability: lost segments are resent transparently</td></tr>
+<tr><td>Sliding window</td><td>Flow control: receiver advertises free buffer space</td></tr>
+<tr><td>Congestion control (slow start, AIMD)</td><td>Avoid overloading the network</td></tr>
+<tr><td>Checksum</td><td>Detect corrupted segments</td></tr></table>
+<p><strong>No message boundaries:</strong> TCP preserves byte order, not the sizes of your <code>send</code> calls (see framing, section 12). The API order is: server <code>socket → bind → listen → accept → recv/send → close</code>; client <code>socket → connect → send/recv → close</code>.</p>
+
+<h2 id="t4">11. UDP (User Datagram Protocol)</h2>
+<p>Connectionless, unreliable, unordered, <em>message-oriented</em>. The 8-byte header holds source port, destination port, length and checksum. No handshake, no retransmission.</p>
+<table><tr><th></th><th>TCP</th><th>UDP</th></tr>
+<tr><td>Connection</td><td>Yes (handshake)</td><td>No</td></tr>
+<tr><td>Delivery guarantee</td><td>Yes, in order</td><td>No: loss, duplication, reordering possible</td></tr>
+<tr><td>Boundaries</td><td>Byte stream</td><td>One send = one datagram = one recv</td></tr>
+<tr><td>Overhead</td><td>20+ byte header, state</td><td>8 byte header, stateless</td></tr>
+<tr><td>Python</td><td><code>SOCK_STREAM</code>, <code>connect/accept</code></td><td><code>SOCK_DGRAM</code>, <code>sendto/recvfrom</code></td></tr>
+<tr><td>Typical use</td><td>Web, email, file transfer</td><td>DNS, VoIP, video, games, streaming telemetry</td></tr></table>
+<p>Practical consequences: always set a client <strong>timeout</strong> and decide what to do on loss (retry, report error); the server must remember the client <code>addr</code> from <code>recvfrom</code> to answer; datagrams bigger than the path MTU (~1472 payload bytes on Ethernet) get IP-fragmented, so keep them small.</p>
+
+<h2 id="t5">12. Framing and binary protocols</h2>
+<p>Since TCP gives a stream, an application protocol must define where a message ends. Common techniques:</p>
+<table><tr><th>Technique</th><th>Example</th></tr>
+<tr><td>Fixed-size records</td><td>The exam's <code>4s i</code> (8 bytes) or <code>20s i</code> (24 bytes): read exactly <code>calcsize</code> bytes</td></tr>
+<tr><td>Length prefix</td><td>4-byte length, then payload (<code>struct.pack("!I", len(p)) + p</code>)</td></tr>
+<tr><td>Delimiter</td><td>Newline-terminated text (HTTP headers, SMTP, Redis)</td></tr>
+<tr><td>Connection close</td><td>End of data = EOF (HTTP/1.0 bodies)</td></tr></table>
+<h3>Designing a message format</h3>
+<ul><li>Text fields: fixed width, NUL-padded (<code>Ns</code>), or length-prefixed.</li>
+<li>Integers: fixed width and <em>defined</em> byte order (big-endian by convention on networks, "network byte order").</li>
+<li>Variable-length reply as in task 1: the reply size depends on the request (<code>f"{num}s"</code>), so both sides must derive it identically.</li>
+<li>Commands as short padded ASCII codes (<code>IN</code>, <code>INCR</code>, <code>DECR</code>), which is why you must strip NULs and compare after <code>decode()</code>.</li></ul>
+<p>Replies can be a text byte string (<code>b"19"</code>, task 2: the client needs to know how to read it, here: one <code>recv</code> and <code>int()</code>) or a packed struct (<code>struct.pack("i", 19)</code>, task 3a). Text replies without delimiter are fragile with TCP; in a real protocol add a newline or length prefix.</p>
+
+<h2 id="t6">13. Concurrency models for servers</h2>
+<table><tr><th>Model</th><th>How</th><th>Pros</th><th>Cons</th></tr>
+<tr><td>Iterative</td><td>accept → serve → close, one at a time</td><td>Trivial</td><td>One slow client blocks everyone</td></tr>
+<tr><td>Thread per client</td><td><code>threading.Thread(target=handle, args=(c,))</code></td><td>Simple code per client</td><td>Locks needed; many threads are heavy</td></tr>
+<tr><td>Multiplexing (<code>select</code>)</td><td>One thread, readiness events</td><td>No locks, scales to many idle clients</td><td>State machines / buffers; handlers must not block</td></tr>
+<tr><td>asyncio</td><td><code>async def</code> + <code>await</code></td><td>Readable multiplexing, scales well</td><td>Must avoid blocking calls</td></tr></table>
+<p>In task 2 the counter is <em>global</em>: all clients modify the same value, which is natural in a single-threaded <code>select</code> loop (operations are serialized, no race condition).</p>
+
+<h2 id="t7">14. Proxies and multi-actor systems</h2>
+<p>A <strong>proxy</strong> is a server towards the client and a client towards the real server. In task 3c the TCP server holds no state: it receives <code>(IN|INCR|DECR, X)</code>, translates the command (<code>IN→PUSH</code>, <code>INCR→PLUS</code>, <code>DECR→MINUS</code>), re-encodes it (<code>5s i</code>), sends it by UDP, waits for the <code>i</code> reply, converts it to a byte string and returns it over TCP.</p>
+<pre>client --TCP "4s i"--&gt; [proxy] --UDP "5s i"--&gt; [UDP server: stores value]
+client &lt;--TCP bytes--- [proxy] &lt;--UDP "i"----- [UDP server]</pre>
+<p>This is <strong>protocol translation</strong> plus <strong>centralised state</strong>: several front-ends can share one authoritative backend. Design points: timeouts towards the backend (UDP can lose packets), error replies to the client, one UDP socket reused for all requests (fine in a single-threaded loop). Other proxy roles: caching, load balancing, TLS termination, firewalling, anonymisation.</p>
+<h3>Checker / monitor clients</h3>
+<p>Task 3b compares two systems that should hold the same state. Using a <em>neutral operation</em> (add 0) reads the value without changing it. Because the faulty UDP server adds -1/0/+1 to <em>every</em> command, errors accumulate, so the values diverge once and stay different; a checker detects it only if the servers were in sync before.</p>
+
+<h2 id="t8">15. Reliability, errors and testing</h2>
+<ul><li><strong>Error detection</strong>: parity, checksums (IP/TCP/UDP use a 16-bit ones'-complement sum), CRC (Ethernet). <strong>Correction</strong>: ARQ (retransmit) or FEC (redundant coding).</li>
+<li><strong>ARQ variants</strong>: stop-and-wait, go-back-N, selective repeat. TCP is a sliding-window selective-ack hybrid.</li>
+<li><strong>Making UDP reliable</strong>: sequence numbers + ACK + retry with timeout + duplicate suppression. Beware retrying non-idempotent commands (<code>PLUS 5</code> executed twice = +10); design idempotent operations (<code>PUSH</code>) or attach request IDs.</li>
+<li><strong>Latency vs. throughput</strong>: RTT is the round-trip time; throughput ≈ window / RTT. Bandwidth-delay product = bandwidth × RTT.</li>
+<li><strong>Fault injection</strong> (as the faulty UDP server) is a standard testing technique: deliberately break a component to verify that monitors detect it.</li>
+<li><strong>Security</strong>: plain TCP/UDP is unencrypted; use TLS (<code>ssl</code> module) in real systems; validate lengths and values of incoming data, never trust the peer.</li></ul>
+
+<h2 id="t9">16. Useful tools</h2>
+<table><tr><th>Tool</th><th>Use</th></tr>
+<tr><td><code>nc -l 10000</code> / <code>nc localhost 10000</code></td><td>Quick TCP listen/connect (add <code>-u</code> for UDP)</td></tr>
+<tr><td><code>ss -tulpn</code> / <code>netstat -ano</code></td><td>Which process listens on which port</td></tr>
+<tr><td>Wireshark / <code>tcpdump -i lo port 10000</code></td><td>Inspect real packets, see the struct bytes on the wire</td></tr>
+<tr><td><code>ping</code>, <code>traceroute</code>, <code>dig</code></td><td>Reachability, route, DNS</td></tr>
+<tr><td><code>python3 -c "import struct;print(struct.calcsize('5s i'))"</code></td><td>Check message sizes</td></tr>
+<tr><td><code>xxd</code> / <code>data.hex()</code></td><td>Hex-dump bytes</td></tr></table>
+
+<h2 id="x1">17. Exam patterns &amp; checklist</h2>
+<h3>Mapping to the solution files</h3>
+<table><tr><th>Task</th><th>File</th><th>Key idea</th></tr>
+<tr><td>1/a</td><td><code>task1a_tcp_client.py</code></td><td>input(), random number, <code>20s i</code>, reply format <code>f"{num}s"</code></td></tr>
+<tr><td>1/b</td><td><code>task1b_tcp_client_file.py</code></td><td>read input.txt, random line 1..3, split</td></tr>
+<tr><td>1/c</td><td><code>task1c_tcp_client_json.py</code></td><td>JSON key is <code>str(randint(1,3))</code></td></tr>
+<tr><td>1/d</td><td><code>task1d_udp_client.py</code></td><td><code>SOCK_DGRAM</code>, <code>sendto/recvfrom</code>, timeout</td></tr>
+<tr><td>2</td><td><code>task2_select_server.py</code></td><td>select loop, <code>4s i</code>, reply <code>str(value).encode()</code></td></tr>
+<tr><td>3/a</td><td><code>task3a_udp_server.py</code></td><td><code>5s i</code> in, <code>i</code> out</td></tr>
+<tr><td>3/b</td><td><code>task3b_checker.py</code> (+ <code>--faulty</code>)</td><td>INCR 0 / PLUS 0 and compare</td></tr>
+<tr><td>3/c</td><td><code>task3c_proxy_tcp_server.py</code></td><td>command translation, UDP forwarding</td></tr></table>
+<h3>Checklist before submitting</h3>
+<ol><li>Are host, port and the <em>exact</em> struct format strings copied from the task?</li>
+<li>Everything encoded to bytes before sending, decoded after receiving, NULs stripped?</li>
+<li>TCP reads: exactly N bytes via a loop (or a per-client buffer in <code>select</code>)?</li>
+<li>UDP client: timeout set? Server answers to the <code>addr</code> from <code>recvfrom</code>?</li>
+<li>Random range inclusive (<code>randint(1,3)</code>)? JSON key a string? Number parsed with <code>int()</code>?</li>
+<li>Sockets closed (<code>with</code>)? <code>SO_REUSEADDR</code> set on servers?</li>
+<li>Run the provided test server/client first and print <code>repr()</code> of raw data while debugging.</li></ol>
+<h3>How to run the examples</h3>
+<pre># terminal 1                          # terminal 2
+python3 task1_server_tcp.py          python3 task1a_tcp_client.py
+python3 task2_select_server.py       python3 task2_test_client.py
+python3 task3a_udp_server.py --faulty   # then the TCP server + task3b_checker.py
+python3 task3a_udp_server.py            # then task3c_proxy_tcp_server.py + task2_test_client.py</pre>
+</main></div></body></html>
