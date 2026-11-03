@@ -1,0 +1,110 @@
+1. feladat
+
+Készítsünk egy TCP klienst!
+
+Töltse le a feladat1_win.zip -et, illetve ha valaki Debian-t használ, akkor a feladat1_deb.zip -et! Ezt csomagolja ki, amelyben található a feladat1_server_obf.py tesztszerver, a feladatot a kicsomagolt mappában oldja meg!
+
+A szerver indításához szükséges megadni a hoszt nevet és a portszámot parancssori argumentumokként, pl.:
+python feladat1_server_obf.py localhost 10353
+
+A kliens ugyanezekkel a parancssori argumentumokkal induljon el (ennek megfelelően kapcsolódjon a kliens), pl.:
+python feladat1_client.py localhost 10353
+
+Fontos: a feladat1_server_obf.py obfuszkált kódot "fekete dobozként" kell kezelni, a rá alkalmazott kódvisszafejtés ("reverse engineering") csalásnak minősül.
+
+A kliens küldje el az Ön neptun kódját, a könyv ISBN azonosítóját és az üzenettípusát (kezdetben "submit") egy üzenetben a tesztszervernek, ahol a formátum: (6s 13s 6s)
+A tesztszerver válaszüzenete a példány elérhetősége (0 = nincs vagy 1 = van) és a kölcsönzési idő (napok száma), formátum: (i i)
+Önnek a "9780679760801" ISBN azonosítójú könyvre van szüksége, amelyet 21 napra szeretne kikölcsönözni. Ha nem elérhető a példány, akkor a kliens válaszüzenet: neptun kód, ISBN, "cancel" (6s 13s 6s).
+Ha elérhető a példány, akkor két aleset van. Ha a könyvtár által küldött kölcsönzési idő nem kisebb, mint az igény, akkor a kliens válaszüzenet: neptun kód, ISBN, "borrow" (6s 13s 6s). Ha csak kevesebb időre lehetne kikölcsönözni, mint az igény, akkor a kliens válaszüzenet: neptun kód, ISBN, "extend" (6s 13s 6s). Az utóbbi alesetben a szerver jóváhagyási státuszt (0 = elutasítva vagy 1 = elfogadva) és új kölcsönzési időt küld (i i), amely alapján a kliens meghozza a végső döntést: ha elfogadva és az új idő nem kisebb, mint az igény, akkor neptun kód, ISBN, "borrow" (6s 13s 6s) válaszüzenet fog menni, egyébként neptun kód, ISBN, "cancel" (6s 13s 6s).
+(Természetesen olyan is előfordulhat, hogy nem elérhető a példány, de az számít teljes megoldásnak, ha a kliens implementációja minden esetre felkészül.)
+A szerver végső válasza ("cancel" és "borrow" esetén is) egy kölcsönzési azonosító (12s).
+Ennek az azonosítónak a unicode sztring reprezentációját kell a megoldás mezőbe bemásolni.
+(Ha hiba van a megoldásában, akkor a válaszüzenetben egy-két esetben jelezve van, hogy mi a probléma. Továbbá a szerver is naplózza a szabványos kimenetre a legfontosabb eseményeket.)
+
+2. feladat
+
+Készítsünk egy TCP szervert, amely a select segítségével egyszerre több kliens kiszolgálására is képes!
+
+Töltse le a feladat2_win.zip -et, illetve ha valaki Debian-t használ, akkor a feladat2_deb.zip -et! Ezt csomagolja ki, amelyben található a feladat2_client_obf.py tesztkliens, a feladatot a kicsomagolt mappában oldja meg!
+
+A feladat2_client_obf.py -t kell majd elindítani az alábbi formában (három parancssori paraméterrel):
+python feladat2_client_obf.py localhost 10001 t3C9y5N1kW7u
+(Pontosabban a portszám helyén az a portszám szerepeljen majd, amire kötötte a szerverét. Az utolsónál figyeljen, hogy pontosan másolja majd le.)
+
+Fontos: a feladat2_client_obf.py obfuszkált kódot "fekete dobozként" kell kezelni, a rá alkalmazott kódvisszafejtés ("reverse engineering") csalásnak minősül.
+
+A szerver egy 3x3-as egészértékű mátrixot tárol, aminek a cellái kezdetben 0-k. A kliensek háromféle parancsot küldhetnek a szervernek:
+- SET R C V - állítsa be az R. sorú, C. oszlopú cella értékét V-re
+- GET R C V - kérje le az R. sorú, C. oszlopú cella értékét (a V nem releváns, 0-ra van állítva)
+- SUM R C V - kérje le a teljes mátrix összegét (az R, C, V nem releváns, mindegyik 0-ra van állítva)
+A parancsokat a kliensek struct formátumban küldik (3s i i i). A szerver minden parancs után egy egész számot ad vissza (i), amely a lekért vagy módosított érték.
+
+Példa:
+SET, 1, 2, 10 → a szerver beállítja a [1,2] cellát 10-re, és ezt küldi vissza a kliensnek
+GET, 1, 2, 0 → a szerver küldi a kliensnek az [1,2] cella értékét, a 10-et
+SET, 0, 1, 5 → a szerver beállítja a [0,1] cellát 5-re, és ezt küldi vissza a kliensnek
+SUM, 0, 0, 0 → a szerver küldi a teljes mátrix összegét, a 15-öt
+
+A kliens nem fog szándékosan helytelen üzenetet (pl. érvénytelen parancsot, sor/oszlop számot stb.) küldeni.
+Test1:
+
+Test2:
+
+Test3:
+
+3. feladat
+
+Készítsünk egy proxy programot, amely a kliens üzeneteit a megfelelő szerver felé továbbítja az üzenet sürgőssége alapján:
+- Sürgős kérdések (pl. „Hol van a vizsga?”) → továbbítás UDP csatornán az UDP szerver felé.
+- Nem sürgős, hivatalos ügyek (pl. „Kreditelismerés kérelem”) → továbbítás TCP csatornán a TCP szerver felé.
+- A proxy a szerver válaszát változatlanul visszaküldi a kliensnek.
+
+Töltse le a feladat3_win.zip -et, illetve ha valaki Debian-t használ, akkor a feladat3_deb.zip -et! Ezt csomagolja ki, a feladatot a kicsomagolt mappában oldja meg! Ebben találhatók a feladat megoldásához szükséges tesztfájlok:
+- feladat3_tcp_client_obf.py
+- feladat2_tcp_server_obf.py
+- feladat2_udp_server_obf.py
+
+Fontos: a feladat3_tcp_client_obf.py, feladat2_tcp_server_obf.py és feladat2_udp_server_obf.py obfuszkált kódokat "fekete dobozként" kell kezelni, a rá alkalmazott kódvisszafejtés ("reverse engineering") csalásnak minősül.
+
+A kliens mindig TCP‑n kapcsolódik a proxyhoz. A klienstől a proxyhoz menő üzenet formátuma: sürgősségjelző, üzenet (i 20s).
+A proxy az sürgősségjelző alapján dönt: ha 0 → TCP szerverhez, ha 1 → UDP szerverhez továbbítja az üzenetet (20s). A proxy a TCP szerverrel való kommunikációhoz egyetlen socketet tart fenn, és minden kliens üzenetet ezen keresztül továbbít. A proxy a select segítségével egyszerre több kliens kiszolgálására is képes.
+A szerver bytesztring válasza változatlanul visszakerül a klienshez.
+
+Az alábbi ábra szemlélteti a szereplők közötti kapcsolatokat és a protokollokat:
+
+   +---------+        TCP        +---------+
+   |         |<----------------->|         |
+   |  Kliens |        TCP        |  Proxy  |
+   |         |        ---------->|         |
+   +---------+       /           +---------+
+                    /             ^     ^
+   +---------+     /              |      \
+   |         |    /               |       \
+   |  Kliens |<---              TCP        UDP
+   |         |                    |         \
+   +---------+                    |          \
+                                  v           v
+                             +---------+  +---------+
+                             |  TCP    |  |  UDP    |
+                             | Szerver |  | Szerver |
+                             +---------+  +---------+
+
+Futtatás sorrend, indítási példák:
+1. Indítsa el a TCP szervert:
+python feladat3_tcp_server_obf.py localhost 10001 hQ7zM2aK9Xc4
+2. Indítsa el az UDP szervert:
+python feladat3_udp_server_obf.py localhost 10002 hQ7zM2aK9Xc4
+(A fenti kettőnél a portszám tetszőlegesen változtatható, de a proxyját ezekre a portszámokra kell irányítania az üzenetek sürgősség alapú továbbításához. Az utolsó argumentumokat pontosan másolja le.)
+3. Indítsa el a saját proxy implementációját!
+4. Indítsa el a klienst:
+python feladat3_tcp_client_obf.py localhost 10003 hQ7zM2aK9Xc4
+(A portszám helyére azt a portot írja, amelyre a proxyját kötötte. Az utolsó argumentumot pontosan másolja le.)
+Test1:
+
+Test2:
+
+Test3:
+
+Test4:
+
+Test5:

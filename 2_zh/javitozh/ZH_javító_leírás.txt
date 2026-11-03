@@ -1,0 +1,121 @@
+1. feladat
+
+Készítsünk egy TCP klienst!
+
+Töltse le a feladat1_win.zip -et, illetve ha valaki Debian-t használ, akkor a feladat1_deb.zip -et! Ezt csomagolja ki, amelyben található a feladat1_server_obf.py tesztszerver, a feladatot a kicsomagolt mappában oldja meg!
+
+A szerver indításához szükséges megadni a hoszt nevet és a portszámot parancssori argumentumokként, pl.:
+python feladat1_server_obf.py localhost 10353
+
+A kliens ugyanezekkel a parancssori argumentumokkal induljon el (ennek megfelelően kapcsolódjon a kliens), pl.:
+python feladat1_client.py localhost 10353
+
+Fontos: a feladat1_server_obf.py obfuszkált kódot "fekete dobozként" kell kezelni, a rá alkalmazott kódvisszafejtés ("reverse engineering") csalásnak minősül.
+
+A kliens küldje el az Ön neptun kódját, a könyv ISBN azonosítóját és az üzenettípusát (kezdetben "submit") egy üzenetben a tesztszervernek, ahol a formátum: (6s 13s 6s)
+A tesztszerver válaszüzenete a példány elérhetősége (0 = nincs vagy 1 = van) és a kölcsönzési idő (napok száma), formátum: (i i)
+Önnek a "9780261103252" ISBN azonosítójú könyvre van szüksége, amelyet 16 napra szeretne kikölcsönözni. Ha nem elérhető a példány, akkor a kliens válaszüzenet: neptun kód, ISBN, "cancel" (6s 13s 6s).
+Ha elérhető a példány, akkor két aleset van. Ha a könyvtár által küldött kölcsönzési idő nem kisebb, mint az igény, akkor a kliens válaszüzenet: neptun kód, ISBN, "borrow" (6s 13s 6s). Ha csak kevesebb időre lehetne kikölcsönözni, mint az igény, akkor a kliens válaszüzenet: neptun kód, ISBN, "extend" (6s 13s 6s). Az utóbbi alesetben a szerver jóváhagyási státuszt (0 = elutasítva vagy 1 = elfogadva) és új kölcsönzési időt küld (i i), amely alapján a kliens meghozza a végső döntést: ha elfogadva és az új idő nem kisebb, mint az igény, akkor neptun kód, ISBN, "borrow" (6s 13s 6s) válaszüzenet fog menni, egyébként neptun kód, ISBN, "cancel" (6s 13s 6s).
+(Természetesen olyan is előfordulhat, hogy nem elérhető a példány, de az számít teljes megoldásnak, ha a kliens implementációja minden esetre felkészül.)
+A szerver végső válasza ("cancel" és "borrow" esetén is) egy kölcsönzési azonosító (12s).
+Ennek az azonosítónak a unicode sztring reprezentációját kell a megoldás mezőbe bemásolni.
+(Ha hiba van a megoldásában, akkor a válaszüzenetben egy-két esetben jelezve van, hogy mi a probléma. Továbbá a szerver is naplózza a szabványos kimenetre a legfontosabb eseményeket.)
+
+2. feladat
+
+Készítsünk egy TCP szervert, amely a select segítségével egyszerre több kliens kiszolgálására is képes!
+
+Töltse le a feladat2_win.zip -et, illetve ha valaki Debian-t használ, akkor a feladat2_deb.zip -et! Ezt csomagolja ki, amelyben található a feladat2_client_obf.py tesztkliens, a feladatot a kicsomagolt mappában oldja meg!
+
+A feladat2_client_obf.py -t kell majd elindítani az alábbi formában (három parancssori paraméterrel):
+python feladat2_client_obf.py localhost 10001 b9L4y7H2m0Qk
+(Pontosabban a portszám helyén az a portszám szerepeljen majd, amire kötötte a szerverét. Az utolsónál figyeljen, hogy pontosan másolja majd le.)
+
+Fontos: a feladat2_client_obf.py obfuszkált kódot "fekete dobozként" kell kezelni, a rá alkalmazott kódvisszafejtés ("reverse engineering") csalásnak minősül.
+
+A szerver a hallgatók jegyeit tárolja a tárgyakhoz. A kliensek háromféle parancsot küldhetnek a szervernek:
+- INS C N G - adja hozzá vagy frissítse a C tárgyhoz kapcsolódóan az N Neptun-kódú hallgatónak G jegyet
+- GET C N G - kérdezze le a C tárgyhoz kapcsolódóan az N Neptun-kódú hallgatónak a jegyét (a G nem releváns, 0.0-ra van állítva)
+- AVG C N G - számítsa ki a C tárgyhoz a jegyek átlagát (az N, G nem releváns, az N "ZZZZZZ"-ra, a G 0.0-ra van állítva)
+A parancsokat a kliensek struct formátumban küldik (3s 6s 6s f). A szerver minden parancs után egy lebegőpontos számot ad vissza (f), amely a INS után a beszúrt jegy, GET után a hallgató jegye, AVG után a tárgy átlagjegye.
+
+Példa:
+INS, NET101, ABC123, 5.0 → a szerver hozzáadja a NET101 tárgyhoz kapcsolódóan az ABC123 Neptun-kódú hallgatónak az 5.0 jegyet, és a jegyet küldi vissza a kliensnek
+GET, NET101, ABC123, 0.0 → a szerver elküldi a kliensnek a NET101 tárgyhoz kapcsolódóan az ABC123 Neptun-kódú hallgatónak a jegyét, az 5.0-t
+INS, NET101, CBA321, 3.0 → a szerver hozzáadja a NET101 tárgyhoz kapcsolódóan az CBA321 Neptun-kódú hallgatónak az 4.0 jegyet, és a jegyet küldi vissza a kliensnek
+INS, NET101, CBA321, 4.0 → a szerver frissíti a NET101 tárgyhoz kapcsolódóan az CBA321 Neptun-kódú hallgatónak a jegyét 4.0-re, és a jegyet küldi vissza a kliensnek
+AVG, NET101, ZZZZZZ, 0.0 → a szerver küldi
+a NET101 tárgyhoz kapcsolódóan a jegyek átlagát, a 4.5-t
+
+A kliens nem fog szándékosan helytelen üzenetet (pl. érvénytelen parancsot stb.) küldeni.
+Test1: 
+Test2: 
+Test3
+
+3. feladat
+
+Készítsünk egy proxy programot, amely kétféle kliens üzeneteit továbbítja megfelelő formában a Visszajelzés-kezelő Szerver felé:
+- A Diák Klienstől tárgyakra érkeznek értékelések (1..5) a Proxyhoz.
+- Az Admin Kliens adott tárgyakra vonatkozó értékelési pontszámok átlagait kéri le.
+- A Proxy a Visszajelzés-kezelő Szerver válaszát változatlanul visszaküldi a klienseknek.
+
+Töltse le a feladat3_win.zip -et, illetve ha valaki Debian-t használ, akkor a feladat3_deb.zip -et! Ezt csomagolja ki, a feladatot a kicsomagolt mappában oldja meg! Ebben találhatók a feladat megoldásához szükséges tesztfájlok:
+- feladat3_student_client_obf.py
+- feladat3_admin_client_obf.py
+- feladat3_feedback_server_obf.py
+
+Fontos: a feladat3_student_client_obf.py, feladat3_admin_client_obf.py és feladat3_feedback_server_obf.py obfuszkált kódokat "fekete dobozként" kell kezelni, a rá alkalmazott kódvisszafejtés ("reverse engineering") csalásnak minősül.
+
+A kliensek mindig TCP‑n kapcsolódnak a Proxyhoz. Mindkét típusú klienstől a Proxyhoz menő üzenet formátuma: Neptun-kód, tárgy, értékelési pontszám (6s 6s i), de az Admin Kliensnél a Neptun-kód AAA000 és az értékelési pontszám itt nem használt 0-ra van állítva.
+A Proxy a select segítségével egyszerre több kliens kiszolgálására is képes. Mivel a klienseknek fontos, hogy a visszajelzésük/kérésük ne legyen visszavezethető rájuk, ezért a Proxytól a Visszajelzés-kezelő Szerverhez menő üzenet formátuma: tárgy, értékelési pontszám (6s i), de a Proxy csak akkor küldi tovább, ha az értékelési pontszám kisebb, mint 6, egyébként egyből a "Hibás értékelési pontszám" üzenetet küldi a Diák Kliensnek. A Proxy a Visszajelzés-kezelő Szerverrel UDP-n keresztül kommunikál.
+A Visszajelzés-kezelő Szerver az értékelési pontszám alapján dönti el, hogy mi lesz a bytesztring válasza: ha 0 → "avg=X", ahol X az átlag, egyébként "Visszajelzés rögzítve". A Proxy az üzenetet a Diák Kliensnek változatlanul küldi vissza, de az Admin Kliens üzenete esetében a Proxy a tárgyat elé teszi prefixként, pl.: "PHY201 avg=4.5" és úgy küldi vissza a választ.
+
+Az alábbi ábra szemlélteti a szereplők közötti kapcsolatokat és a protokollokat:
+
+   +---------+        TCP        +---------+
+   |  Diák   |<----------------->|         |
+   |  Kliens |        TCP        |  Proxy  |
+   |         |        ---------->|         |
+   +---------+       /           +---------+
+                    /                 ^
+   +---------+     /                  |
+   |  Admin  |    /                   |
+   |  Kliens |<---                   UDP
+   |         |                        |
+   +---------+                        |
+                                      v
+                              +---------------+
+                              | Visszajelzés- |
+                              |    kezelő     |
+                              |    Szerver    |
+                              +---------------+
+Futtatás sorrend, indítási példák:
+1. Indítsa el a Visszajelzés-kezelő Szervert:
+python feladat3_feedback_server_obf.py localhost 10001 W9nR3yT6uK1j
+(A portszám tetszőlegesen változtatható, de a proxyját erre a portszámra kell irányítania az üzenetek továbbításához. Az utolsó argumentumot pontosan másolja le.)
+2. Indítsa el a saját Proxy implementációját!
+3. Indítsa el a Diák Klienst:
+python feladat3_student_client_obf.py localhost 10002 W9nR3yT6uK1j
+4. Indítsa el az Admin Klienst:
+python feladat3_admin_client_obf.py localhost 10002 W9nR3yT6uK1j
+(A fenti kettőnél a portszám helyére azt a portot írja, amelyre a proxyját kötötte. Az utolsó argumentumokat pontosan másolja le.)
+Test1: 
+Test2: 
+Test3: 
+Test4: 
+Test5:
+
+
+
+
+Megoldások:
+1. feladat: z8y6t0r5w3n2
+2. feladat
+Test1: 
+C6p3N8s1R5wJ
+
+Test2: 
+x2G9v4K7t0Bq
+
+Test3: 
+P1d5z8M3n6Fh
